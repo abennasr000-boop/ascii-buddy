@@ -1,0 +1,659 @@
+/* 1-bit Macintosh visual language. See ASCII_BUDDY_SPEC.md §12.1. */
+
+@font-face {
+  font-family: 'Departure Mono';
+  src: url('./assets/fonts/DepartureMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --ink: #000000;
+  --paper: #ffffff;
+  --border: 1px;
+  --shadow-offset: 2px;
+  --radius: 5px;
+  --font-ui: 'Departure Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  /* Departure Mono renders pixel-crisp at multiples of 11px. */
+  --font-size: 11px;
+  --font-size-lg: 22px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--font-size);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+
+#root {
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* ---------- Dither patterns ---------- */
+
+.ab-desktop {
+  height: 100%;
+  width: 100%;
+  background-color: var(--paper);
+  background-image: repeating-conic-gradient(rgba(0, 0, 0, 0.4) 0% 25%, transparent 0% 50%);
+  background-size: 2px 2px;
+  background-position: 0 0;
+  position: relative;
+}
+
+.ab-dither-dots {
+  background-image: radial-gradient(var(--ink) 1px, transparent 1.2px);
+  background-size: 4px 4px;
+}
+
+.ab-dither-check {
+  background-image: repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%);
+  background-size: 4px 4px;
+}
+
+/* ---------- Window ---------- */
+
+.ab-window {
+  position: relative;
+  background: var(--paper);
+  border: var(--border) solid var(--ink);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 0 var(--ink);
+}
+
+.ab-window__titlebar {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-bottom: var(--border) solid var(--ink);
+  background-image: repeating-linear-gradient(var(--ink) 0, var(--ink) 1px, transparent 1px, transparent 3px);
+  background-position: center;
+}
+
+.ab-window__titlebox {
+  background: var(--paper);
+  padding: 0 10px;
+  font-size: var(--font-size);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+.ab-window__close {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border: var(--border) solid var(--ink);
+  background: var(--paper);
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ab-window__close:active {
+  background: var(--ink);
+}
+
+.ab-window__body {
+  padding: 12px;
+  overflow: auto;
+}
+
+/* ---------- Button ---------- */
+
+.ab-button {
+  appearance: none;
+  background: var(--paper);
+  color: var(--ink);
+  border: var(--border) solid var(--ink);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  min-height: 44px;
+  min-width: 44px;
+  font-size: var(--font-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  position: relative;
+}
+
+.ab-button:active:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.ab-button--default {
+  box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px var(--ink);
+  margin: 3px;
+}
+
+.ab-button--destructive {
+  font-weight: normal;
+}
+
+.ab-button:disabled {
+  color: transparent;
+  text-shadow: 0 0 0 transparent;
+  background-image: radial-gradient(var(--ink) 1px, transparent 1.2px);
+  background-size: 3px 3px;
+  background-clip: text;
+  -webkit-background-clip: text;
+  cursor: default;
+  opacity: 0.6;
+}
+
+.ab-icon-button {
+  appearance: none;
+  background: transparent;
+  border: none;
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--ink);
+  padding: 0;
+}
+
+.ab-icon-button:active:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.ab-icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ---------- Menu bar ---------- */
+
+.ab-menubar {
+  height: 32px;
+  display: flex;
+  align-items: stretch;
+  border-bottom: var(--border) solid var(--ink);
+  background: var(--paper);
+  position: relative;
+  z-index: 20;
+}
+
+.ab-menubar__left,
+.ab-menubar__right {
+  display: flex;
+  align-items: stretch;
+}
+
+.ab-menubar__right {
+  margin-left: auto;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 65%;
+}
+
+/* Quick toggles live in a 32px-tall bar, so they trade the usual 44px
+ * minimum hit area for fitting the row (§12.1 allows a control to "look
+ * smaller" than its hit area; a real oversized hit-area treatment is
+ * deferred to when these controls do something, in later phases). */
+.ab-menubar__right .ab-icon-button {
+  min-height: 0;
+  min-width: 32px;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.ab-menubar__right .ab-segmented {
+  height: 22px;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.ab-menubar__right .ab-segmented__option {
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  padding: 0 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.ab-menubar__title {
+  background: transparent;
+  border: none;
+  padding: 0 12px;
+  font-size: var(--font-size);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.ab-menubar__title--open,
+.ab-menubar__title:active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.ab-menubar__status {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: var(--font-size);
+  color: var(--ink);
+  opacity: 0.7;
+}
+
+.ab-menu {
+  position: absolute;
+  top: 32px;
+  left: 0;
+  min-width: 220px;
+  background: var(--paper);
+  border: var(--border) solid var(--ink);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 0 var(--ink);
+  padding: 4px 0;
+  z-index: 30;
+}
+
+.ab-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 30px;
+}
+
+.ab-menu__item:hover:not(.ab-menu__item--disabled),
+.ab-menu__item:active:not(.ab-menu__item--disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.ab-menu__item--disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ab-menu__shortcut {
+  opacity: 0.6;
+  font-size: 10px;
+}
+
+.ab-menu__separator {
+  height: var(--border);
+  background: var(--ink);
+  margin: 4px 0;
+  opacity: 0.4;
+}
+
+/* ---------- Slider ---------- */
+
+.ab-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ab-slider-row__label {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size);
+}
+
+.ab-slider {
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  margin: 0;
+}
+
+.ab-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--ink);
+}
+
+.ab-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 22px;
+  margin-top: -10px;
+  background: var(--paper);
+  border: var(--border) solid var(--ink);
+  border-radius: 2px;
+}
+
+.ab-slider::-moz-range-track {
+  height: 2px;
+  background: var(--ink);
+}
+
+.ab-slider::-moz-range-thumb {
+  width: 16px;
+  height: 22px;
+  background: var(--paper);
+  border: var(--border) solid var(--ink);
+  border-radius: 2px;
+}
+
+/* ---------- Segmented control ---------- */
+
+.ab-segmented {
+  display: inline-flex;
+  border: var(--border) solid var(--ink);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.ab-segmented__option {
+  background: var(--paper);
+  color: var(--ink);
+  border: none;
+  border-right: var(--border) solid var(--ink);
+  padding: 8px 12px;
+  min-height: 44px;
+  min-width: 44px;
+  font-size: var(--font-size);
+  cursor: pointer;
+}
+
+.ab-segmented__option:last-child {
+  border-right: none;
+}
+
+.ab-segmented__option--selected {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* ---------- Dialog / Alert ---------- */
+
+.ab-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  background-image: repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%);
+  background-size: 4px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.ab-dialog {
+  width: min(440px, 100%);
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.ab-dialog__body {
+  padding: 16px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ab-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px 16px;
+}
+
+.ab-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ab-field__label {
+  font-size: var(--font-size);
+}
+
+.ab-input {
+  border: var(--border) solid var(--ink);
+  border-radius: 3px;
+  padding: 8px;
+  min-height: 44px;
+  background: var(--paper);
+  font-family: var(--font-ui);
+  font-size: var(--font-size);
+}
+
+.ab-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ab-preset-button {
+  background: var(--paper);
+  border: var(--border) solid var(--ink);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  min-height: 40px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ab-preset-button--selected {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.ab-aspect-swatch {
+  border: var(--border) solid currentColor;
+  width: 28px;
+}
+
+/* ---------- Settings rows / checkbox ---------- */
+
+.ab-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: var(--border) solid var(--ink);
+  opacity: 1;
+}
+
+.ab-settings-row:last-child {
+  border-bottom: none;
+}
+
+.ab-checkbox {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border: var(--border) solid var(--ink);
+  border-radius: 3px;
+  background: var(--paper);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ab-checkbox:checked {
+  background: var(--ink);
+}
+
+.ab-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--paper);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* ---------- Tool palette ---------- */
+
+.ab-tool-palette {
+  width: 64px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0;
+  border-right: 1px solid var(--ink);
+  background: var(--paper);
+  overflow-y: auto;
+}
+
+.ab-tool-palette__separator {
+  width: 70%;
+  height: 1px;
+  background: var(--ink);
+  opacity: 0.4;
+  margin: 6px 0;
+}
+
+.ab-tool-palette__swatches {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.ab-tool-palette__swatch {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.ab-tool-palette__swatch--ink {
+  top: 0;
+  left: 0;
+  z-index: 2;
+}
+
+.ab-tool-palette__swatch--paper {
+  bottom: 0;
+  right: 0;
+  z-index: 1;
+}
+
+.ab-tool-palette__size {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- Canvas ---------- */
+
+.ab-canvas-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+
+.ab-canvas-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  box-shadow: 2px 2px 0 0 var(--ink);
+  border: 1px solid var(--ink);
+}
+
+.ab-canvas-layer {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.ab-ascii-canvas-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+.ab-ascii-canvas-layer {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The atlas backing store is capped in resolution (§5.11 allows reusing a
+   * cached size while zooming); pixelated keeps the upscale hard-edged
+   * (matching "crisp glyphs") instead of turning it into smooth blur. */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ---------- Icon ---------- */
+
+.ab-icon {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* ---------- Scrollbars: keep them thin and out of the way ---------- */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink);
+  opacity: 0.4;
+}

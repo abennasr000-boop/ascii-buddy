@@ -4,6 +4,38 @@ A retro, minimalist drawing and frame-by-frame animation tool that turns freehan
 
 No accounts, no server, no analytics, and no network requests after the page loads: everything is one HTML file and your projects live in your browser's storage.
 
+<p align="center">
+  <img src="docs/screenshots/raster-view.png" width="49%" alt="A robot drawn with the pen in the raster view">
+  <img src="docs/screenshots/ascii-view.png" width="49%" alt="The same drawing shown as ASCII characters">
+</p>
+<p align="center"><em>Draw on the left, flip to ASCII on the right: same drawing, rendered live as characters.</em></p>
+
+## The idea
+
+Most ASCII art tools make you type characters one by one, or convert a finished image in one shot. ascii_buddy<3 does neither. You draw normally, with a pencil, like in a simple paint app, while a character grid sits over the canvas. The app turns what you draw into ASCII as you go, so you can sketch, check the ASCII, and keep drawing.
+
+**The drawing is the source; the ASCII is a view of it.** Because the characters are always computed from the drawing, you can change the grid size, the conversion style or the character set at any time without losing anything. The same conversion engine renders the screen and every export, so what you see is what you export.
+
+It is also a flipbook. Add frames, turn on onion skin to see the previous frame as a ghost, and play the animation back as a drawing or as ASCII.
+
+The interface looks like a 1984 Macintosh: 1-bit black and white, pixel fonts, striped title bars. It behaves like a modern app, with gestures, full undo and autosave. It is built for **iPad + Apple Pencil** first, and works on desktop with a mouse and keyboard too.
+
+## A look around (iPad, landscape)
+
+| | |
+|---|---|
+| ![Timeline with onion skin](docs/screenshots/timeline-onion-skin.png) | ![ASCII settings window](docs/screenshots/ascii-settings.png) |
+| **Frame-by-frame animation.** The expanded timeline, with onion skin showing the previous frame as a tinted ghost. | **ASCII settings.** Grid density, Ramp / Hybrid / Shape styles, character ramps, thresholds, fonts. They can be set per project, per track or per cel. |
+| ![Layers window over the ASCII view](docs/screenshots/layers.png) | ![Export dialog](docs/screenshots/export.png) |
+| **Layers.** Drawing, reference and static tracks, shown here over the ASCII view in Hybrid style. | **Export.** GIF, MP4, PNG, PDF, TXT, ANSI, SVG, a self-contained HTML player and more, in ASCII or raster. |
+
+<p align="center">
+  <img src="docs/screenshots/new-project.png" width="70%" alt="New project dialog">
+  <br><em>New project: canvas shape, resolution, character grid, background and frame rate.</em>
+</p>
+
+## Documentation
+
 See [ASCII_BUDDY_SPEC.md](ASCII_BUDDY_SPEC.md) for the full product and technical spec, [IPAD_LEARNINGS.md](IPAD_LEARNINGS.md) for reusable iPad/Safari engineering notes, [DECISIONS.md](DECISIONS.md) for the choices made along the way, [TESTING.md](TESTING.md) for the manual iPad checklist and [IDEAS.md](IDEAS.md) for what could come next.
 
 ## What's in it

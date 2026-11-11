@@ -5,10 +5,15 @@ A retro, minimalist drawing and frame-by-frame animation tool that turns freehan
 No accounts, no server, no analytics, and no network requests after the page loads: everything is one HTML file and your projects live in your browser's storage.
 
 <p align="center">
-  <img src="docs/screenshots/raster-view.png" width="49%" alt="A robot drawn with the pen in the raster view">
-  <img src="docs/screenshots/ascii-view.png" width="49%" alt="The same drawing shown as ASCII characters">
+  <img src="docs/screenshots/animation.gif" width="100%" alt="An ASCII animation of a person opening a fridge, exported from the app">
+  <br><em>A 49-frame rotoscoped animation, exported as a GIF straight from the app.</em>
 </p>
-<p align="center"><em>Draw on the left, flip to ASCII on the right: same drawing, rendered live as characters.</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/raster-with-reference.png" width="49%" alt="Drawing traced over a video reference in the raster view">
+  <img src="docs/screenshots/ascii-view.png" width="49%" alt="The same frame shown as ASCII characters">
+</p>
+<p align="center"><em>Trace over a video frame on the left, flip to ASCII on the right: same drawing, rendered live as characters.</em></p>
 
 ## The idea
 
@@ -24,10 +29,12 @@ The interface looks like a 1984 Macintosh: 1-bit black and white, pixel fonts, s
 
 | | |
 |---|---|
-| ![Timeline with onion skin](docs/screenshots/timeline-onion-skin.png) | ![ASCII settings window](docs/screenshots/ascii-settings.png) |
-| **Frame-by-frame animation.** The expanded timeline, with onion skin showing the previous frame as a tinted ghost. | **ASCII settings.** Grid density, Ramp / Hybrid / Shape styles, character ramps, thresholds, fonts. They can be set per project, per track or per cel. |
-| ![Layers window over the ASCII view](docs/screenshots/layers.png) | ![Export dialog](docs/screenshots/export.png) |
-| **Layers.** Drawing, reference and static tracks, shown here over the ASCII view in Hybrid style. | **Export.** GIF, MP4, PNG, PDF, TXT, ANSI, SVG, a self-contained HTML player and more, in ASCII or raster. |
+| ![Raster view without the reference](docs/screenshots/raster-view.png) | ![ASCII view over the video reference](docs/screenshots/ascii-with-reference.png) |
+| **The drawing itself.** Flat shapes in the raster view, with the reference hidden. | **ASCII over the reference.** The reference stays visible while you work, but it is never converted or exported. |
+| ![Timeline with onion skin](docs/screenshots/timeline-onion-skin.png) | ![Layers window and timeline](docs/screenshots/layers.png) |
+| **Frame-by-frame animation.** The expanded timeline shows every track across 49 frames, with onion skin on. | **Layers.** A video reference track and two drawing tracks, each with visibility, lock and settings. |
+| ![ASCII settings window](docs/screenshots/ascii-settings.png) | ![Export dialog](docs/screenshots/export.png) |
+| **ASCII settings.** Grid density (263 × 74 characters here), Ramp / Hybrid / Shape styles, character ramps, threshold, density, fonts. Set per project, per track or per cel. | **Export.** GIF, MP4, PNG, PDF, TXT, ANSI, SVG, a self-contained HTML player and more, in ASCII or raster. |
 
 <p align="center">
   <img src="docs/screenshots/new-project.png" width="70%" alt="New project dialog">

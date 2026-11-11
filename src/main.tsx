@@ -9,3 +9,10 @@ preventPageGestures();
 installAutosaveFlushers();
 
 render(<App />, document.getElementById('root')!);
+
+// Optional offline copy of the app (public/sw.js). Only when hosted over http(s) — not from a file, not in dev.
+if (import.meta.env.PROD && 'serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+  });
+}

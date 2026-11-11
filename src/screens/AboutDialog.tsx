@@ -1,7 +1,7 @@
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '1.0.0';
 
 export function AboutDialog({ onClose }: { onClose: () => void }) {
   return (
@@ -19,6 +19,13 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         <p style={{ margin: 0, opacity: 0.8 }}>
           Departure Mono by Helena Zhang, licensed under the SIL Open Font License 1.1.
         </p>
+        <p style={{ margin: 0, opacity: 0.8 }}>
+          JetBrains Mono (Latin subset) by The JetBrains Mono Project Authors, licensed under the SIL Open Font License 1.1.
+        </p>
+      </div>
+      <div class="ab-field">
+        <span class="ab-field__label">Libraries</span>
+        <p style={{ margin: 0, opacity: 0.8 }}>fflate (MIT) · idb (ISC) · Preact (MIT) · gifenc by Matt DesLauriers (MIT) · Mediabunny by Vanilagy (MPL-2.0)</p>
       </div>
     </Dialog>
   );

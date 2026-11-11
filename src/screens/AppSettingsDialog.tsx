@@ -43,11 +43,12 @@ function ToggleRow({
 export function AppSettingsDialog({ onClose, onAbout }: { onClose: () => void; onAbout: () => void }) {
   const s = appSettings.value;
   const [usage, setUsage] = useState<{ usage: number; quota: number } | null>(null);
-  const [persisted, setPersisted] = useState<boolean | null>(null);
+  const [persisted, setPersisted] = useState<boolean | null | undefined>(undefined); // undefined = still asking, null = not supported
 
   useEffect(() => {
     navigator.storage?.estimate?.().then((e) => setUsage({ usage: e.usage ?? 0, quota: e.quota ?? 0 }));
-    navigator.storage?.persisted?.().then(setPersisted);
+    if (navigator.storage?.persisted) navigator.storage.persisted().then(setPersisted, () => setPersisted(null));
+    else setPersisted(null);
   }, []);
 
   const requestPersistence = async () => {
@@ -67,11 +68,9 @@ export function AppSettingsDialog({ onClose, onAbout }: { onClose: () => void; o
         checked={s.leftHanded}
         onChange={(v) => updateAppSettings({ leftHanded: v })}
       />
-      <ToggleRow
-        label="Canvas rotation gesture"
-        checked={s.canvasRotation}
-        onChange={(v) => updateAppSettings({ canvasRotation: v })}
-      />
+      <Row label="Canvas rotation gesture">
+        <span style={{ opacity: 0.6 }} title="Rotating the canvas with two fingers isn't built yet">Not available yet</span>
+      </Row>
       <ToggleRow
         label="Two-finger tap undo / three-finger tap redo"
         checked={s.tapGestures}
@@ -83,18 +82,38 @@ export function AppSettingsDialog({ onClose, onAbout }: { onClose: () => void; o
         onChange={(v) => updateAppSettings({ hideReferencesDuringPlayback: v })}
       />
       <Row label="Autosave delay">
-        <span>{(s.autosaveDelayMs / 1000).toFixed(1)} s</span>
+        <select
+          class="ab-input"
+          style={{ minHeight: 32, padding: '2px 6px' }}
+          value={String(s.autosaveDelayMs)}
+          onChange={(e) => updateAppSettings({ autosaveDelayMs: Number((e.target as HTMLSelectElement).value) })}
+        >
+          {[500, 1000, 1500, 3000, 5000].map((ms) => (
+            <option key={ms} value={ms}>
+              {(ms / 1000).toFixed(1)} s
+            </option>
+          ))}
+        </select>
       </Row>
       <Row label="Storage used">
         <span>{usage ? `${formatBytes(usage.usage)} of ${formatBytes(usage.quota)}` : '—'}</span>
       </Row>
       <Row label="Persistent storage">
-        {persisted ? (
+        {persisted === undefined ? (
+          <span style={{ opacity: 0.6 }}>…</span>
+        ) : persisted ? (
           <span>Granted</span>
+        ) : persisted === null ? (
+          <span style={{ opacity: 0.6 }}>Not supported here</span>
         ) : (
           <Button onClick={requestPersistence}>Request</Button>
         )}
       </Row>
+      {persisted === false ? (
+        <span style={{ fontSize: 10, opacity: 0.7 }}>
+          Without it the browser may clear ascii_buddy's data when the device is low on space. Adding the app to the Home Screen makes the request more likely to be granted. Export project files regularly either way.
+        </span>
+      ) : null}
       <Row label="About and licenses">
         <Button onClick={onAbout}>About</Button>
       </Row>

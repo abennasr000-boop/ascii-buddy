@@ -1,7 +1,7 @@
 {
   "name": "ascii_buddy",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,9 @@
   "dependencies": {
     "@preact/signals": "^2.11.2",
     "fflate": "^0.8.3",
+    "gifenc": "^1.0.3",
     "idb": "^8.0.3",
+    "mediabunny": "^1.60.0",
     "preact": "^10.29.8"
   },
   "devDependencies": {

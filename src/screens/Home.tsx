@@ -3,13 +3,18 @@ import { Window } from '../ui/Window';
 import { Button, IconButton } from '../ui/Button';
 import { Icon } from '../ui/icons';
 import { Alert } from '../ui/Dialog';
-import { projects, projectsLoaded, loadProjects, createAndSaveProject, renameProject, duplicateProject, removeProject, nextUntitledName } from '../state/projects';
+import { projects, projectsLoaded, createAndSaveProject, renameProject, duplicateProject, removeProject, nextUntitledName } from '../state/projects';
 import { storageError } from '../state/storage';
 import { openProject } from '../state/router';
 import { NewProjectDialog } from './NewProjectDialog';
 import { RenameDialog } from './RenameDialog';
 import { AppSettingsDialog } from './AppSettingsDialog';
 import { AboutDialog } from './AboutDialog';
+import { ProjectFileDialog } from '../ui/ProjectFileDialog';
+import { importProjectFile } from '../state/projectFileActions';
+import { ProjectFileError } from '../engine/projectFile';
+import { backupLabel } from '../engine/backupLabel';
+import { thumbnailUrls, copyThumbnail, forgetThumbnail, refreshThumbnail } from '../state/thumbnails';
 import type { Project } from '../types/model';
 
 function formatDate(ts: number): string {
@@ -22,6 +27,7 @@ function formatBytes(n: number): string {
 }
 
 function ProjectThumbnail({ project }: { project: Project }) {
+  const url = thumbnailUrls.value.get(project.id);
   return (
     <div
       style={{
@@ -29,8 +35,11 @@ function ProjectThumbnail({ project }: { project: Project }) {
         background: project.background,
         border: '1px solid var(--ink)',
         width: '100%',
+        overflow: 'hidden',
       }}
-    />
+    >
+      {url ? <img src={url} alt="" draggable={false} style={{ display: 'block', width: '100%', height: '100%', imageRendering: 'pixelated' }} /> : null}
+    </div>
   );
 }
 
@@ -39,12 +48,14 @@ function ProjectCard({
   onOpen,
   onRename,
   onDuplicate,
+  onExport,
   onDelete,
 }: {
   project: Project;
   onOpen: () => void;
   onRename: () => void;
   onDuplicate: () => void;
+  onExport: () => void;
   onDelete: () => void;
 }) {
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -70,6 +81,21 @@ function ProjectCard({
     };
   }, [menuPos]);
 
+  // §13.1: long-press a project to open the same menu as the ⋯ button. The tap that ends a long-press must not also open the project.
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressed = useRef(false);
+  const startPress = () => {
+    longPressed.current = false;
+    pressTimer.current = setTimeout(() => {
+      longPressed.current = true;
+      openMenu();
+    }, 500);
+  };
+  const cancelPress = () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  };
+
   const openMenu = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -78,7 +104,19 @@ function ProjectCard({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, position: 'relative' }}>
-      <div onClick={onOpen} style={{ cursor: 'pointer' }}>
+      <div
+        onClick={() => {
+          if (longPressed.current) longPressed.current = false;
+          else onOpen();
+        }}
+        onPointerDown={startPress}
+        onPointerUp={cancelPress}
+        onPointerLeave={cancelPress}
+        onPointerCancel={cancelPress}
+        onPointerMove={(e) => Math.abs(e.movementX) + Math.abs(e.movementY) > 6 && cancelPress()}
+        onContextMenu={(e) => e.preventDefault()}
+        style={{ cursor: 'pointer', WebkitTouchCallout: 'none' }}
+      >
         <ProjectThumbnail project={project} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
@@ -94,7 +132,7 @@ function ProjectCard({
           aria-label="Project actions"
           onClick={openMenu}
         >
-          …
+          <Icon name="more" size={32} />
         </button>
       </div>
       {menuPos ? (
@@ -116,6 +154,18 @@ function ProjectCard({
             }}
           >
             <span>Duplicate</span>
+          </div>
+          <div
+            class="ab-menu__item"
+            onClick={() => {
+              setMenuPos(null);
+              onExport();
+            }}
+          >
+            <span>Export project file…</span>
+          </div>
+          <div class="ab-menu__item" style={{ opacity: 0.6, fontSize: 10, pointerEvents: 'none' }}>
+            <span>{backupLabel(project.lastExportedAt)}</span>
           </div>
           <div class="ab-menu__separator" />
           <div
@@ -140,16 +190,22 @@ export function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [usage, setUsage] = useState<number | null>(null);
+  const [exportTarget, setExportTarget] = useState<Project | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
+  // The project list is loaded once at app start (App.tsx) and then kept in memory. It used to be re-read
+  // from storage every time this screen appeared — which could return an older copy of a project whose
+  // save was still in flight (then overwrite the newer in-memory one), and re-sorted the grid a moment
+  // after it appeared, so a tap could land on a different project than the one under the finger.
 
   useEffect(() => {
     navigator.storage?.estimate?.().then((e) => setUsage(e.usage ?? 0));
   }, [projects.value.length]);
 
-  const list = projects.value;
+  // Most recently modified first; ties broken by id so the order is fully deterministic.
+  const list = [...projects.value].sort((a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id));
 
   return (
     <div class="ab-desktop" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -157,17 +213,45 @@ export function Home() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0 }}>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <Button isDefault onClick={() => setShowNewProject(true)}>
-              <Icon name="plus" size={18} /> New project
+              <Icon name="plus" size={16} /> New project
             </Button>
+            <Button onClick={() => importInputRef.current?.click()} disabled={importing}>
+              {importing ? 'Importing…' : 'Import project file'}
+            </Button>
+            <input
+              ref={importInputRef}
+              type="file"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const input = e.target as HTMLInputElement;
+                const file = input.files?.[0];
+                input.value = '';
+                if (!file) return;
+                setImporting(true);
+                try {
+                  const project = await importProjectFile(file);
+                  void refreshThumbnail(project);
+                  setImportMessage(`Imported “${project.name}”.`);
+                } catch (err) {
+                  setImportMessage(err instanceof ProjectFileError ? err.message : `The file couldn't be imported: ${err instanceof Error ? err.message : String(err)}`);
+                } finally {
+                  setImporting(false);
+                }
+              }}
+            />
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
               <IconButton title="App settings" onClick={() => setShowSettings(true)}>
-                <Icon name="gear" size={22} />
+                <Icon name="hammerAndSickle" size={32} />
               </IconButton>
               <IconButton title="About ascii_buddy<3" onClick={() => setShowAbout(true)}>
-                <Icon name="info" size={22} />
+                <Icon name="info" size={32} />
               </IconButton>
             </div>
           </div>
+
+          {window.innerWidth < 600 ? (
+            <div style={{ border: '1px solid var(--ink)', padding: 8, opacity: 0.85 }}>Works best on iPad or desktop.</div>
+          ) : null}
 
           {storageError.value ? (
             <div style={{ border: '1px solid var(--ink)', padding: 8, opacity: 0.85 }}>
@@ -201,7 +285,12 @@ export function Home() {
                   project={p}
                   onOpen={() => openProject(p.id)}
                   onRename={() => setRenameTarget(p)}
-                  onDuplicate={() => duplicateProject(p.id).catch(() => {})}
+                  onDuplicate={() =>
+                    duplicateProject(p.id)
+                      .then((copy) => copy && copyThumbnail(p.id, copy.id))
+                      .catch(() => {})
+                  }
+                  onExport={() => setExportTarget(p)}
                   onDelete={() => setDeleteTarget(p)}
                 />
               ))}
@@ -256,6 +345,7 @@ export function Home() {
           onConfirm={async () => {
             try {
               await removeProject(deleteTarget.id);
+              forgetThumbnail(deleteTarget.id);
             } catch {
               // storageError banner already reflects this.
             }
@@ -263,6 +353,9 @@ export function Home() {
           }}
         />
       ) : null}
+
+      {exportTarget ? <ProjectFileDialog projectId={exportTarget.id} onClose={() => setExportTarget(null)} /> : null}
+      {importMessage ? <Alert message={importMessage} confirmLabel="OK" onConfirm={() => setImportMessage(null)} onCancel={() => setImportMessage(null)} /> : null}
 
       {showSettings ? <AppSettingsDialog onClose={() => setShowSettings(false)} onAbout={() => setShowAbout(true)} /> : null}
       {showAbout ? <AboutDialog onClose={() => setShowAbout(false)} /> : null}

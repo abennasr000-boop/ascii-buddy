@@ -11,7 +11,7 @@ export interface MenuItemDef {
 
 export interface MenuDef {
   id: string;
-  title: string;
+  title: ComponentChildren;
   items: MenuItemDef[];
 }
 

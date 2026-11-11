@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeFullGridStats, recomputeGridStatsRegion } from './gridStats';
+import { computeFullGridStats, recomputeGridStatsRegion, BIN_COUNT, BIN_ROWS, BIN_COLS } from './gridStats';
 
 // A small 8×8 buffer sliced into a 4×4 grid, so each grid cell is exactly 2×2 = 4 pixels.
 function makeBuffer(): Uint8Array {
@@ -86,5 +86,46 @@ describe('recomputeGridStatsRegion', () => {
     const full = computeFullGridStats(buf, 8, 8, 4, 4);
     expect(Array.from(stats.coverage)).toEqual(Array.from(full.coverage));
     expect(Array.from(stats.dominantColor)).toEqual(Array.from(full.dominantColor));
+  });
+});
+
+describe('sub-grid bins (§5.2)', () => {
+  // A 12 × 24 cel that is one grid cell (1 column × 1 row): bins are 2 × 2 px.
+  function cel(fill: (x: number, y: number) => boolean): Uint8Array {
+    const buf = new Uint8Array(12 * 24);
+    for (let y = 0; y < 24; y++) for (let x = 0; x < 12; x++) if (fill(x, y)) buf[y * 12 + x] = 1;
+    return buf;
+  }
+
+  it('is off unless requested', () => {
+    expect(computeFullGridStats(cel(() => true), 12, 24, 1, 1).bins).toBeNull();
+  });
+
+  it('a fully inked cell has every bin at full strength', () => {
+    const { bins } = computeFullGridStats(cel(() => true), 12, 24, 1, 1, true);
+    expect(bins).not.toBeNull();
+    expect(bins!.length).toBe(BIN_COUNT);
+    expect(bins!.every((v) => v === 255)).toBe(true);
+  });
+
+  it('a horizontal line lands only in the bin rows it crosses', () => {
+    const { bins } = computeFullGridStats(cel((_x, y) => y === 12 || y === 13), 12, 24, 1, 1, true);
+    for (let r = 0; r < BIN_ROWS; r++) {
+      for (let c = 0; c < BIN_COLS; c++) {
+        expect(bins![r * BIN_COLS + c] > 0).toBe(r === 6);
+      }
+    }
+  });
+
+  it('a partial region recompute matches a full recompute, bins included', () => {
+    const w = 24;
+    const h = 24; // 2 columns × 1 row
+    const buf = new Uint8Array(w * h);
+    const stats = computeFullGridStats(buf, w, h, 2, 1, true);
+    for (let y = 4; y < 20; y++) buf[y * w + 15] = 2; // a vertical stroke in the right cell
+    recomputeGridStatsRegion(stats, buf, w, h, { x: 15, y: 4, w: 1, h: 16 });
+    const full = computeFullGridStats(buf, w, h, 2, 1, true);
+    expect([...stats.bins!]).toEqual([...full.bins!]);
+    expect([...stats.coverage]).toEqual([...full.coverage]);
   });
 });

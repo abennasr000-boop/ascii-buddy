@@ -9,7 +9,16 @@ export const RAMP_PRESETS: Record<string, string> = {
   Minimal: '.oO@',
 };
 
-export const DEFAULT_SHAPE_CHARS = "-_|/\\()<>^v',.:;+x=[]o";
+/** Ramps that need the extended character set (§5.4). */
+export const EXTENDED_RAMP_PRESETS: Record<string, string> = {
+  Blocks: '░▒▓█',
+};
+
+// Spec §5.5 suggests `- _ | / \ ( ) < > ^ v ' \` , . : ; + x = [ ] o`, "to be tuned with visual tests". Tested against real
+// pen strokes, the heavy glyphs (+ x = o [ ]) and the wide ones (^ v < >) out-scored the thin line glyphs for ordinary
+// thin lines — a centred horizontal stroke became `+`/`=`, never `-` — so the default keeps just the glyphs that
+// actually follow lines. Any of them can be added back in the ASCII window (see DECISIONS.md).
+export const DEFAULT_SHAPE_CHARS = "-_|/\\()',.:;";
 
 export const DEFAULT_COLUMNS = 80;
 export const COLUMN_PRESETS = [

@@ -6,6 +6,10 @@ import { signal } from '@preact/signals';
 export const gridOverlay = signal(false);
 export const showDrawingUnderAscii = signal(false);
 
+/** Hides every reference track's image at once without touching individual
+ * eye states, so re-enabling it restores exactly what was visible before. §8. */
+export const hideAllReferences = signal(false);
+
 /** True while the columns slider is being dragged, so the grid overlay shows
  * "faintly and temporarily" per §11 even when the toggle itself is off. */
 export const columnsSliderActive = signal(false);

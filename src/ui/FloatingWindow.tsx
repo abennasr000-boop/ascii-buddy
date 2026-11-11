@@ -87,7 +87,27 @@ export function FloatingWindow({
   };
 
   return (
-    <div style={{ position: 'fixed', left: pos.x, top: pos.y, zIndex: 40 }}>
+    <div
+      style={{
+        position: 'fixed',
+        // `fixed` positions relative to the viewport, bypassing #root's own
+        // safe-area padding entirely — without this, a window's stored/default
+        // (x, y) can render under the iPad status bar or the now-taller menu
+        // bar. Adding the inset here (on top of the stored offset) keeps drag
+        // math untouched (it's a constant added equally to old and new
+        // positions) while clearing the safe area on every edge.
+        left: `calc(${pos.x}px + env(safe-area-inset-left))`,
+        // A hard floor just below the menu bar's bottom edge (not flush
+        // against it — a window's own top border sitting directly against
+        // the bar's bottom border reads as one thick doubled line), rather
+        // than only the stored/default y plus the inset: a position saved to
+        // localStorage before this floor (or the bar's own height) existed
+        // would otherwise keep rendering under the bar forever, since a
+        // stored position always wins over defaultPosition.
+        top: `max(calc(${pos.y}px + env(safe-area-inset-top)), calc(env(safe-area-inset-top) + var(--menubar-height) + 8px))`,
+        zIndex: 40,
+      }}
+    >
       <Window
         title={title}
         onClose={onClose}

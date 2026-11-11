@@ -6,6 +6,8 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 // requests, everything (JS, CSS, fonts, icons) inlined. See ASCII_BUDDY_SPEC.md §3.2.
 export default defineConfig({
   plugins: [preact(), viteSingleFile()],
+  // Workers are inlined into the single HTML file (`?worker&inline`); IIFE keeps them loadable on older iPadOS Safari too.
+  worker: { format: 'iife' },
   build: {
     target: 'es2020',
     cssCodeSplit: false,

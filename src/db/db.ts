@@ -1,7 +1,7 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import type { AsciiBuddyDB } from './schema';
 import { DB_NAME, DB_VERSION } from './schema';
-import type { AppSettings, DrawingCel, ID, Project } from '../types/model';
+import type { AppSettings, DrawingCel, ID, PaletteLibraryEntry, Project, ReferenceCel } from '../types/model';
 import { defaultAppSettings } from '../model/defaults';
 
 // Thrown when IndexedDB can't be opened at all (e.g. a page opened via
@@ -89,6 +89,37 @@ export function celKey(projectId: ID, trackId: ID, frameId: ID | 'static'): stri
   return `${projectId}/${trackId}/${frameId}`;
 }
 
+/** For the timeline's per-cel content dots (§9.4) — cheap existence check, no
+ * decoding. A drawing cel "has content" when it has a bbox; a reference cel
+ * always does, simply by existing (it's never stored empty). */
+export async function listCelKeysWithContent(projectId: ID): Promise<Set<string>> {
+  const db = await getDB();
+  const all = await db.getAllFromIndex('cels', 'projectId', projectId);
+  const keys = new Set<string>();
+  for (const cel of all) {
+    if ('imageId' in cel || cel.bbox) keys.add(`${cel.trackId}/${cel.frameId}`);
+  }
+  return keys;
+}
+
+/** Every cel (drawing and reference) stored for a project — used to tell whether an image is still referenced. */
+export async function listCelsForProject(projectId: ID): Promise<Array<DrawingCel | ReferenceCel>> {
+  const db = await getDB();
+  return (await db.getAllFromIndex('cels', 'projectId', projectId)) as Array<DrawingCel | ReferenceCel>;
+}
+
+/** Which (track, frame) cels carry a conversion override (§5.7) — for the timeline's small markers. */
+export async function listCelOverrideKeys(projectId: ID): Promise<Set<string>> {
+  const db = await getDB();
+  const all = await db.getAllFromIndex('cels', 'projectId', projectId);
+  const keys = new Set<string>();
+  for (const cel of all) {
+    if ('imageId' in cel) continue;
+    if (cel.conversion && Object.keys(cel.conversion).length > 0) keys.add(`${cel.trackId}/${cel.frameId}`);
+  }
+  return keys;
+}
+
 export async function getCel(projectId: ID, trackId: ID, frameId: ID | 'static'): Promise<DrawingCel | undefined> {
   const db = await getDB();
   const value = await db.get('cels', celKey(projectId, trackId, frameId));
@@ -105,6 +136,50 @@ export async function deleteCel(projectId: ID, trackId: ID, frameId: ID | 'stati
   await db.delete('cels', celKey(projectId, trackId, frameId));
 }
 
+// Reference cels share the same `cels` store and key scheme as drawing cels
+// (the store's value type is a union of both) — see §17.
+export async function getReferenceCel(projectId: ID, trackId: ID, frameId: ID | 'static'): Promise<ReferenceCel | undefined> {
+  const db = await getDB();
+  const value = await db.get('cels', celKey(projectId, trackId, frameId));
+  return value as ReferenceCel | undefined;
+}
+
+export async function putReferenceCel(cel: ReferenceCel): Promise<void> {
+  const db = await getDB();
+  await db.put('cels', cel, celKey(cel.projectId, cel.trackId, cel.frameId));
+}
+
+export async function putImage(id: ID, projectId: ID, blob: Blob): Promise<void> {
+  const db = await getDB();
+  await db.put('images', { id, projectId, blob });
+}
+
+export async function getImage(id: ID): Promise<Blob | undefined> {
+  const db = await getDB();
+  const value = await db.get('images', id);
+  return value?.blob;
+}
+
+export async function deleteImage(id: ID): Promise<void> {
+  const db = await getDB();
+  await db.delete('images', id);
+}
+
+export async function putThumbnail(projectId: ID, blob: Blob): Promise<void> {
+  const db = await getDB();
+  await db.put('thumbnails', { projectId, blob });
+}
+
+export async function listThumbnails(): Promise<Array<{ projectId: ID; blob: Blob }>> {
+  const db = await getDB();
+  return db.getAll('thumbnails');
+}
+
+export async function getThumbnail(projectId: ID): Promise<Blob | undefined> {
+  const db = await getDB();
+  return (await db.get('thumbnails', projectId))?.blob;
+}
+
 const SETTINGS_KEY = 'app';
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -116,4 +191,20 @@ export async function getAppSettings(): Promise<AppSettings> {
 export async function putAppSettings(settings: AppSettings): Promise<void> {
   const db = await getDB();
   await db.put('settings', settings, SETTINGS_KEY);
+}
+
+// Global palette library (§7.3) — shared across projects.
+export async function listPalettes(): Promise<PaletteLibraryEntry[]> {
+  const db = await getDB();
+  return db.getAll('palettes');
+}
+
+export async function putPalette(entry: PaletteLibraryEntry): Promise<void> {
+  const db = await getDB();
+  await db.put('palettes', entry);
+}
+
+export async function deletePalette(id: ID): Promise<void> {
+  const db = await getDB();
+  await db.delete('palettes', id);
 }

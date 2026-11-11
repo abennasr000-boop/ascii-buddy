@@ -56,3 +56,22 @@ export function decodeCelInto(
   }
   return out;
 }
+
+/** Rewrites every color index in a stored cel's compressed data through `map` (old index → new index),
+ * without touching its bbox. Used when unused colors are removed and the color table is compacted. */
+export function remapCelData(data: Uint8Array, map: Uint8Array): Uint8Array {
+  const pixels = inflateSync(data);
+  for (let i = 0; i < pixels.length; i++) pixels[i] = map[pixels[i]];
+  return deflateSync(pixels, { level: 6 });
+}
+
+/** The set of non-zero color indices present in a stored cel's compressed data. */
+export function usedIndicesInCelData(data: Uint8Array): Set<number> {
+  const pixels = inflateSync(data);
+  const used = new Set<number>();
+  for (let i = 0; i < pixels.length; i++) {
+    const v = pixels[i];
+    if (v !== 0) used.add(v);
+  }
+  return used;
+}

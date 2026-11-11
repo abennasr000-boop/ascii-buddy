@@ -3,29 +3,54 @@
 // The atlas is rebuilt (debounced) when zoom or columns change, so glyphs
 // stay crisp at the current zoom without rebuilding on every pointermove.
 import { useEffect, useRef } from 'preact/hooks';
-import type { Project } from '../types/model';
+import type { AsciiFrame, Project } from '../types/model';
 import { asciiFrame } from '../state/asciiState';
+import { onionLayers } from '../state/onion';
 import { viewport } from '../state/viewport';
+import { blendHex } from '../engine/color';
 import { GlyphAtlas, ensureFontReady } from './glyphAtlas';
+import { fontFamilyFor } from './glyphRender';
 
-const FONT_FAMILY = "'Departure Mono', ui-monospace, monospace";
 const REBUILD_DEBOUNCE_MS = 120;
 
-export function AsciiCanvas({ project }: { project: Project }) {
+/** `overrideFrame`, when given (playback), is shown instead of the live `asciiFrame`
+ * signal and onion skin is skipped — see state/playback.ts and ASCII_BUDDY_SPEC.md §9.3. */
+export function AsciiCanvas({ project, overrideFrame }: { project: Project; overrideFrame?: AsciiFrame | null }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const atlasRef = useRef<GlyphAtlas | null>(null);
   const rebuildTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fontReadyRef = useRef(false);
+  const frame = overrideFrame ?? asciiFrame.value;
+  const showOnion = !overrideFrame && onionLayers.value.length > 0;
 
   function render() {
     const canvas = canvasRef.current;
     const atlas = atlasRef.current;
-    const frame = asciiFrame.value;
     if (!canvas || !atlas || !frame) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const cellW = canvas.width / frame.columns;
     const cellH = canvas.height / frame.rows;
+
+    if (showOnion) {
+      // Nearest frame drawn last (on top); only shown in cells empty in the current frame.
+      const sorted = [...onionLayers.value].sort((a, b) => b.distance - a.distance);
+      for (const layer of sorted) {
+        const baseHex = layer.side === 'before' ? project.onion.colorBefore : project.onion.colorAfter;
+        const opacity = project.onion.opacity * Math.pow(project.onion.falloff, layer.distance - 1);
+        const colorHex = blendHex(project.background, baseHex, opacity);
+        for (let i = 0; i < frame.owner.length; i++) {
+          if (frame.owner[i] || !layer.ascii.owner[i]) continue;
+          const row = Math.floor(i / frame.columns);
+          const col = i % frame.columns;
+          const ch = String.fromCodePoint(layer.ascii.chars[i]);
+          const rect = atlas.getOrCreate(ch, colorHex);
+          ctx.drawImage(atlas.texture, rect.x, rect.y, rect.w, rect.h, Math.round(col * cellW), Math.round(row * cellH), Math.ceil(cellW), Math.ceil(cellH));
+        }
+      }
+    }
+
     for (let row = 0; row < frame.rows; row++) {
       for (let col = 0; col < frame.columns; col++) {
         const i = row * frame.columns + col;
@@ -44,7 +69,6 @@ export function AsciiCanvas({ project }: { project: Project }) {
 
   function rebuildAtlasAndRender() {
     const canvas = canvasRef.current;
-    const frame = asciiFrame.value;
     if (!canvas || !frame) return;
     // Size the backing store to roughly the current on-screen cell size, so glyphs
     // are crisp *now*; it drifts slightly (and gets CSS-scaled) between rebuilds
@@ -53,7 +77,7 @@ export function AsciiCanvas({ project }: { project: Project }) {
     const cellPx = Math.max(6, Math.min(64, Math.round(onScreenCellW)));
     canvas.width = cellPx * frame.columns;
     canvas.height = cellPx * 2 * frame.rows;
-    atlasRef.current = new GlyphAtlas(cellPx, cellPx * 2, FONT_FAMILY, project.crispGlyphs);
+    atlasRef.current = new GlyphAtlas(cellPx, cellPx * 2, fontFamilyFor(project.asciiFont), project.crispGlyphs);
     render();
   }
 
@@ -62,17 +86,22 @@ export function AsciiCanvas({ project }: { project: Project }) {
     rebuildTimerRef.current = setTimeout(rebuildAtlasAndRender, REBUILD_DEBOUNCE_MS);
   }
 
-  // Initial build once the font is actually loaded (otherwise glyph metrics are wrong).
+  // Initial build once the font is actually loaded (otherwise glyph metrics are wrong) — and again
+  // whenever the ASCII font changes (Pixel ↔ Smooth).
   useEffect(() => {
     let cancelled = false;
-    ensureFontReady(FONT_FAMILY).then(() => {
-      if (!cancelled) rebuildAtlasAndRender();
+    fontReadyRef.current = false;
+    atlasRef.current = null; // a different font needs a different atlas
+    ensureFontReady(fontFamilyFor(project.asciiFont)).then(() => {
+      if (cancelled) return;
+      fontReadyRef.current = true;
+      rebuildAtlasAndRender();
     });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.id]);
+  }, [project.id, project.asciiFont]);
 
   // Rebuild (debounced) on zoom or columns/crispGlyphs change.
   const zoom = viewport.value.zoom;
@@ -86,12 +115,17 @@ export function AsciiCanvas({ project }: { project: Project }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom, columns, crisp]);
 
-  // Re-render (no rebuild needed) whenever the frame content changes.
-  const frame = asciiFrame.value;
+  // Re-render (no rebuild needed) whenever the frame content or onion overlay changes. The first frame can
+  // arrive after the atlas was due to be built (the build needs a frame for the grid size — and shape
+  // conversion delivers frames later than ramp does), so build it here if it doesn't exist yet.
   useEffect(() => {
+    if (!atlasRef.current) {
+      if (fontReadyRef.current) rebuildAtlasAndRender();
+      return;
+    }
     render();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frame]);
+  }, [frame, onionLayers.value, project.onion, project.background, project.colors]);
 
   return <canvas ref={canvasRef} class="ab-ascii-canvas-layer" />;
 }

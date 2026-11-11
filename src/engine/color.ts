@@ -68,3 +68,17 @@ export function normalizeHex(value: string): Hex {
   const withHash = value.startsWith('#') ? value : `#${value}`;
   return rgbToHex(hexToRgb(withHash));
 }
+
+/** Linearly blends `fg` over `bg` at `t` (0 = all bg, 1 = all fg) as a solid color —
+ * used to approximate onion-skin opacity for text glyphs, which the glyph atlas
+ * only ever draws fully opaque in a given color (see canvas/AsciiCanvas.tsx). */
+export function blendHex(bg: Hex, fg: Hex, t: number): Hex {
+  const a = hexToRgb(bg);
+  const b = hexToRgb(fg);
+  const clamped = Math.max(0, Math.min(1, t));
+  return rgbToHex({
+    r: a.r + (b.r - a.r) * clamped,
+    g: a.g + (b.g - a.g) * clamped,
+    b: a.b + (b.b - a.b) * clamped,
+  });
+}

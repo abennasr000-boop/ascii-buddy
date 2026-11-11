@@ -1,5 +1,14 @@
 /* 1-bit Macintosh visual language. See ASCII_BUDDY_SPEC.md §12.1. */
 
+/* "Smooth" ASCII font (§3.4) — JetBrains Mono, Latin subset; box-drawing/blocks fall back to Departure Mono. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/fonts/JetBrainsMono-Regular-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @font-face {
   font-family: 'Departure Mono';
   src: url('./assets/fonts/DepartureMono-Regular.woff2') format('woff2');
@@ -18,6 +27,10 @@
   /* Departure Mono renders pixel-crisp at multiples of 11px. */
   --font-size: 11px;
   --font-size-lg: 22px;
+  /* Kept in sync with .ab-menubar's own height below, and used as a floor by
+     FloatingWindow so a stale saved position (from before this value last
+     changed) can never render a window overlapping the bar. */
+  --menubar-height: 44px;
 }
 
 * {
@@ -43,6 +56,15 @@ body {
   height: 100dvh;
   width: 100vw;
   overflow: hidden;
+  /* viewport-fit=cover (index.html) draws edge-to-edge in the home-screen app
+     so the retro chrome can reach the true screen edge, but that also puts the
+     menu bar right under the iPad's status bar (WiFi/battery) with no room to
+     tap it. Safe-area padding pushes all content below it; env() is 0 in a
+     plain Safari tab, so this is a no-op there. */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 button,
@@ -153,6 +175,11 @@ select {
   color: var(--paper);
 }
 
+.ab-button--active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
 .ab-button--default {
   box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px var(--ink);
   margin: 3px;
@@ -200,7 +227,7 @@ select {
 /* ---------- Menu bar ---------- */
 
 .ab-menubar {
-  height: 32px;
+  height: var(--menubar-height);
   display: flex;
   align-items: stretch;
   border-bottom: var(--border) solid var(--ink);
@@ -223,19 +250,19 @@ select {
   max-width: 65%;
 }
 
-/* Quick toggles live in a 32px-tall bar, so they trade the usual 44px
- * minimum hit area for fitting the row (§12.1 allows a control to "look
- * smaller" than its hit area; a real oversized hit-area treatment is
- * deferred to when these controls do something, in later phases). */
+/* Quick toggles fill the full 44px bar height, meeting the usual minimum hit
+ * area (the deferral noted in the Phase 0 decision log no longer applies now
+ * that these controls do real things — iPad testing confirmed 32px was too
+ * cramped to tap reliably). */
 .ab-menubar__right .ab-icon-button {
   min-height: 0;
-  min-width: 32px;
+  min-width: 44px;
   height: 100%;
   flex-shrink: 0;
 }
 
 .ab-menubar__right .ab-segmented {
-  height: 22px;
+  height: 32px;
   align-self: center;
   flex-shrink: 0;
 }
@@ -250,6 +277,7 @@ select {
 }
 
 .ab-menubar__title {
+  color: var(--ink);
   background: transparent;
   border: none;
   padding: 0 12px;
@@ -276,7 +304,10 @@ select {
 
 .ab-menu {
   position: absolute;
-  top: 32px;
+  /* 100%, not a hardcoded px value, so this always sits flush under its
+     positioning ancestor (the per-title wrapper, which stretches to the
+     menu bar's height) regardless of the bar's own height. */
+  top: 100%;
   left: 0;
   min-width: 220px;
   background: var(--paper);
@@ -626,6 +657,11 @@ select {
 .ab-ascii-canvas-wrap {
   position: absolute;
   inset: 0;
+  /* Purely a rendered view, drawn last (on top of every track) — input is
+     handled by DrawingCanvas's own container-level listeners regardless of
+     view, so this must never intercept a tap meant for a reference track's
+     transform handles underneath it. */
+  pointer-events: none;
 }
 
 .ab-ascii-canvas-layer {
@@ -656,4 +692,368 @@ select {
 ::-webkit-scrollbar-thumb {
   background: var(--ink);
   opacity: 0.4;
+}
+
+/* ---------- Timeline (§9.4) ---------- */
+
+.ab-timeline {
+  border-top: var(--border) solid var(--ink);
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.ab-timeline__transport {
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.ab-timeline__strip {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  gap: 2px;
+  margin: 0 8px;
+}
+
+.ab-timeline__chip {
+  min-width: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  /* A swipe on the strip scrolls it; reordering is a deliberate long-press-then-drag (see Timeline.tsx). */
+  touch-action: pan-x;
+  font-size: 11px;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.ab-timeline__chip--current {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.ab-timeline__chip--selected {
+  border-color: var(--ink);
+}
+
+.ab-timeline__col-header--selected {
+  /* The grid header's own 1px border is declared after .ab-timeline__chip--selected, so it needs its own rule. */
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.ab-timeline__drop-before {
+  box-shadow: inset 3px 0 0 var(--ink);
+}
+
+.ab-timeline__drop-after {
+  box-shadow: inset -3px 0 0 var(--ink);
+}
+
+.ab-timeline__dragging {
+  opacity: 0.45;
+}
+
+.ab-timeline__hold {
+  opacity: 0.7;
+  font-size: 9px;
+}
+
+.ab-timeline__fps,
+.ab-timeline__mode {
+  appearance: none;
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: var(--ink);
+  padding: 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ab-timeline__grid-wrap {
+  max-height: 240px;
+  overflow: auto;
+  border-top: 1px solid var(--ink);
+}
+
+.ab-timeline__grid {
+  display: grid;
+  grid-auto-rows: 28px;
+  width: max-content;
+}
+
+.ab-timeline__corner {
+  position: sticky;
+  left: 0;
+  background: var(--paper);
+  z-index: 2;
+}
+
+.ab-timeline__col-header,
+.ab-timeline__row-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  touch-action: pan-x pan-y;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.ab-timeline__row-header {
+  position: sticky;
+  left: 0;
+  background: var(--paper);
+  justify-content: flex-start;
+  padding: 0 8px;
+  z-index: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ab-timeline__row-header--current,
+.ab-timeline__col-header--current {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.ab-timeline__static-bar {
+  background: repeating-linear-gradient(45deg, var(--ink) 0, var(--ink) 1px, transparent 1px, transparent 6px);
+  opacity: 0.5;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.ab-timeline__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  touch-action: pan-x pan-y;
+}
+
+.ab-timeline__cell--current {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.ab-timeline__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.ab-timeline__selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--ink);
+  font-size: 11px;
+}
+
+/* ---- Phase 5: selection, eyedropper feedback, tool options ---- */
+.ab-selection-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ab-selection-pixels {
+  position: absolute;
+  image-rendering: pixelated;
+}
+.ab-ants {
+  position: absolute;
+  overflow: visible;
+}
+.ab-ants path,
+.ab-ants rect,
+.ab-ants polyline {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.5px;
+  stroke-dasharray: 6 6;
+}
+.ab-ants__black {
+  stroke: #000;
+  animation: ab-ants-black 0.7s linear infinite;
+}
+.ab-ants__white {
+  stroke: #fff;
+  stroke-dashoffset: 6;
+  animation: ab-ants-white 0.7s linear infinite;
+}
+@keyframes ab-ants-black {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+@keyframes ab-ants-white {
+  to {
+    stroke-dashoffset: -6;
+  }
+}
+.ab-selection-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid #000;
+  box-sizing: border-box;
+}
+.ab-selection-bar {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
+  z-index: 5;
+  touch-action: none;
+  user-select: none;
+}
+.ab-selection-bar .ab-button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+.ab-pick-ring {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border: 3px solid var(--ink);
+  outline: 2px solid var(--paper);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: ab-pick-ring 0.7s ease-out forwards;
+}
+@keyframes ab-pick-ring {
+  from {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.ab-tool-palette__options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 44px;
+}
+.ab-tool-palette__options .ab-preset-button {
+  min-height: 0;
+  padding: 3px 2px;
+  font-size: 9px;
+  width: 100%;
+}
+
+/* ---- Phase 6: override markers ---- */
+.ab-override-dot {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0 4px;
+  margin-left: 2px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--ink);
+  cursor: pointer;
+}
+.ab-timeline__override-mark {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  font-size: 7px;
+  line-height: 1;
+  pointer-events: none;
+}
+.ab-timeline__cell {
+  position: relative;
+}
+
+/* ---- Phase 7: import progress ---- */
+.ab-progress {
+  height: 14px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+}
+.ab-progress__bar {
+  height: 100%;
+  background: var(--ink);
+  transition: width 0.1s linear;
+}
+
+/* ---- Phase 7 follow-up: long timelines ---- */
+.ab-timeline__strip {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+.ab-timeline__grid-wrap {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.ab-timeline__armed {
+  /* the long-pressed, "lifted" frame: it's now draggable */
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 0 0 2px var(--ink), 3px 3px 0 2px var(--paper);
+  transform: translateY(-2px);
+  z-index: 3;
+}
+.ab-timeline__prep {
+  font-size: 10px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+/* ---- Phase 9: focus mode, left-handed layout ---- */
+.ab-focus-exit {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  right: calc(env(safe-area-inset-right, 0px) + 8px);
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  border: var(--border) solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--ink);
+  opacity: 0.85;
+}
+.ab-focus-exit:active {
+  background: var(--ink);
+  color: var(--paper);
+}
+.ab-tool-palette--right {
+  border-right: none;
+  border-left: 1px solid var(--ink);
 }

@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals';
 import type { Project } from '../types/model';
-import { deleteProject, getCel, listProjects, putCel, putProject } from '../db/db';
+import { deleteProject, getCel, getReferenceCel, getImage, putImage, putReferenceCel, listProjects, putCel, putProject } from '../db/db';
 import { createProject, type NewProjectOptions } from '../model/defaults';
 import { makeId } from '../model/id';
 import { storageError } from './storage';
@@ -40,6 +40,8 @@ export async function createAndSaveProject(opts: NewProjectOptions): Promise<Pro
   } catch (err) {
     flagAndRethrow(err);
   }
+  // §14.1: ask the browser not to evict our data, the first time there is any data worth protecting.
+  if (projects.value.length === 0) void navigator.storage?.persist?.().catch(() => undefined);
   projects.value = [project, ...projects.value];
   return project;
 }
@@ -56,9 +58,9 @@ export async function renameProject(id: string, name: string) {
   projects.value = projects.value.map((p) => (p.id === id ? updated : p));
 }
 
-export async function duplicateProject(id: string) {
+export async function duplicateProject(id: string): Promise<Project | undefined> {
   const project = projects.value.find((p) => p.id === id);
-  if (!project) return;
+  if (!project) return undefined;
   const now = Date.now();
   const existingNames = new Set(projects.value.map((p) => p.name));
   let name = `${project.name} copy`;
@@ -80,14 +82,33 @@ export async function duplicateProject(id: string) {
     flagAndRethrow(err);
   }
   projects.value = [copy, ...projects.value].sort((a, b) => b.updatedAt - a.updatedAt);
+  return copy;
 }
 
 async function duplicateCels(source: Project, newProjectId: string) {
+  // Reference images are keyed by image id alone and deleted per project, so the copy needs its OWN
+  // image records (new ids) — sharing them would make deleting either project delete the other's images.
+  const imageCopies = new Map<string, string>();
   for (const track of source.tracks) {
     const frameIds = track.isStatic ? (['static'] as const) : source.frames.map((f) => f.id);
     for (const frameId of frameIds) {
-      const cel = await getCel(source.id, track.id, frameId);
-      if (cel) await putCel({ ...cel, projectId: newProjectId });
+      if (track.kind === 'reference') {
+        const cel = await getReferenceCel(source.id, track.id, frameId);
+        if (!cel) continue;
+        let imageId = imageCopies.get(cel.imageId);
+        if (!imageId) {
+          const blob = await getImage(cel.imageId);
+          if (blob) {
+            imageId = makeId();
+            await putImage(imageId, newProjectId, blob);
+            imageCopies.set(cel.imageId, imageId);
+          }
+        }
+        if (imageId) await putReferenceCel({ ...cel, projectId: newProjectId, imageId });
+      } else {
+        const cel = await getCel(source.id, track.id, frameId);
+        if (cel) await putCel({ ...cel, projectId: newProjectId });
+      }
     }
   }
 }

@@ -45,3 +45,14 @@ export function useColor(hex: string) {
   const upper = hex.toUpperCase();
   recentColors.value = [upper, ...recentColors.value.filter((c) => c !== upper)].slice(0, 8);
 }
+
+/** Fill: which pixels form the boundaries — every visible drawing track (default) or only the current one. §6.3 */
+export type FillBoundary = 'all' | 'current';
+export const fillBoundary = signal<FillBoundary>('all');
+
+/** Select tool mode. Pressing M with the tool already active toggles it. §6.3 */
+export type SelectMode = 'rect' | 'lasso';
+export const selectMode = signal<SelectMode>('rect');
+
+/** Snap selection moves to whole grid cells. `null` = automatic: on in ASCII view, off in Raster view. §6.3 */
+export const snapOverride = signal<boolean | null>(null);

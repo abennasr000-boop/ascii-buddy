@@ -10,10 +10,14 @@ No accounts, no server, no analytics, and no network requests after the page loa
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/raster-with-reference.png" width="49%" alt="Drawing traced over a video reference in the raster view">
+  <img src="docs/screenshots/raster-view.png" width="49%" alt="The drawing in the raster view">
   <img src="docs/screenshots/ascii-view.png" width="49%" alt="The same frame shown as ASCII characters">
 </p>
-<p align="center"><em>Trace over a video frame on the left, flip to ASCII on the right: same drawing, rendered live as characters.</em></p>
+<p align="center"><em>The drawing on the left, the ASCII view on the right: same frame, rendered live as characters.</em></p>
+
+## Who made this
+
+I'm an artist, and I built ascii_buddy<3 as a tool for my own artistic project: a personal drawing and animation practice. It's shared here so people can see how it works, not as a product. If you'd like to connect about art, find me on Instagram at **[@laying_thing](https://www.instagram.com/laying_thing/)**.
 
 ## The idea
 
@@ -29,8 +33,6 @@ The interface looks like a 1984 Macintosh: 1-bit black and white, pixel fonts, s
 
 | | |
 |---|---|
-| ![Raster view without the reference](docs/screenshots/raster-view.png) | ![ASCII view over the video reference](docs/screenshots/ascii-with-reference.png) |
-| **The drawing itself.** Flat shapes in the raster view, with the reference hidden. | **ASCII over the reference.** The reference stays visible while you work, but it is never converted or exported. |
 | ![Timeline with onion skin](docs/screenshots/timeline-onion-skin.png) | ![Layers window and timeline](docs/screenshots/layers.png) |
 | **Frame-by-frame animation.** The expanded timeline shows every track across 49 frames, with onion skin on. | **Layers.** A video reference track and two drawing tracks, each with visibility, lock and settings. |
 | ![ASCII settings window](docs/screenshots/ascii-settings.png) | ![Export dialog](docs/screenshots/export.png) |
@@ -129,6 +131,12 @@ If `dist/index.html` is opened directly as a local file (double-click, or `file:
 ## Credits
 
 Fonts: Departure Mono (Helena Zhang) and JetBrains Mono (Latin subset), both SIL Open Font License 1.1. Libraries: Preact, fflate, idb, gifenc, Mediabunny (MPL-2.0). Licenses are also shown in the app's About dialog. The hammer-and-sickle settings icon is a supplied pixel drawing.
+
+## License
+
+**Copyright © 2026 Amine Ben Nasr. All rights reserved.**
+
+The code, design and artwork in this repository are published so they can be viewed. They are not open source. You may not copy, modify, redistribute or use them, in whole or in part, without written permission. See [LICENSE](LICENSE). The bundled fonts and third-party libraries listed under Credits keep their own licenses.
 
 ## Project status
 
